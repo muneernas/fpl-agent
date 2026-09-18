@@ -132,17 +132,39 @@ function transferReason(
   inn: ScoredPlayer,
   delta: number,
   hit: number,
+  kind?: "injury" | "dead-bench" | "fixtures",
 ): string {
   const bits: string[] = [];
+  if (kind === "dead-bench") {
+    bits.push("dead bench / no auto-sub cover");
+  }
   if ((out.minutes_factor || 1) < 0.6) bits.push(`${out.web_name} minutes risk`);
   if ((out.avg_fdr_next3 || 3) - (inn.avg_fdr_next3 || 3) >= 0.8)
     bits.push("fixture swing");
   if ((inn.xgi90 || 0) > (out.xgi90 || 0) + 0.15)
     bits.push("stronger underlying xGI/90");
+  if ((inn.minutes_factor || 0) >= 0.85 && (inn.starts || 0) >= 2) {
+    bits.push("replacement likely starts");
+  }
   if (inn.is_differential) bits.push("differential upside");
   if (hit) bits.push(`requires -${hit}`);
   bits.push(`score delta ${delta >= 0 ? "+" : ""}${delta.toFixed(2)}`);
   return bits.join("; ");
+}
+
+function isDeadBench(p: ScoredPlayer): boolean {
+  const onBenchSlot = (p.position_slot || 0) > 11;
+  const barelyPlays =
+    (p.minutes || 0) < 90 ||
+    (p.starts || 0) <= 1 ||
+    (p.ep_next || 0) < 1.2;
+  const unavailable = (p.minutes_factor || 1) < 0.45;
+  // Backup GKs who never play are classic dead wood for outfield auto-subs
+  // but we still need 2 GKs — only flag extreme cases with near-zero involvement
+  if (p.position === "GKP") {
+    return (p.minutes || 0) === 0 && (p.ep_next || 0) < 0.5 && onBenchSlot;
+  }
+  return barelyPlays || unavailable || (onBenchSlot && (p.score || 0) < 2.2);
 }
 
 export function transferIdeas(
@@ -167,42 +189,80 @@ export function transferIdeas(
   const squadScored = squad
     .map((p) => scorePlayer(p, { horizon, risk }))
     .sort((a, b) => a.score - b.score);
-  let weak = squadScored.filter(
+
+  const deadBench = squadScored.filter(isDeadBench);
+  const injuryRisk = squadScored.filter(
     (p) =>
-      p.minutes_factor < 0.6 || (p.risk_flags || []).includes("tough-fixtures"),
+      p.minutes_factor < 0.6 || (p.risk_flags || []).includes("news"),
   );
+  const fixturePain = squadScored.filter((p) =>
+    (p.risk_flags || []).includes("tough-fixtures"),
+  );
+
+  // Priority: non-playing bench first (auto-sub insurance), then injured/doubtful, then fixtures
+  const weakMap = new Map<number, ScoredPlayer>();
+  for (const p of [...deadBench, ...injuryRisk, ...fixturePain]) {
+    if (!weakMap.has(p.id)) weakMap.set(p.id, p);
+  }
+  let weak = [...weakMap.values()].sort((a, b) => a.score - b.score);
   if (!weak.length) weak = squadScored.slice(0, 3);
 
   const market = rankPlayers(
     catalogPlayers.filter((p) => !owned.has(p.id)),
-    { horizon, risk, minMinutes: 90, limit: 80 },
+    { horizon, risk, minMinutes: 90, limit: 100 },
+  );
+
+  // Prefer players who actually start — critical when fixing bench coverage
+  const startableMarket = market.filter(
+    (c) =>
+      (c.minutes_factor || 0) >= 0.75 &&
+      ((c.starts || 0) >= 2 || (c.minutes || 0) >= 180),
   );
 
   const ideas = [];
   for (const out of weak) {
+    const kind: "injury" | "dead-bench" | "fixtures" = deadBench.some(
+      (d) => d.id === out.id,
+    )
+      ? "dead-bench"
+      : injuryRisk.some((d) => d.id === out.id)
+        ? "injury"
+        : "fixtures";
     const budget = bank + (out.selling_price || out.cost || 0);
-    const candidates = market
+    const pool = kind === "dead-bench" ? startableMarket : market;
+    const candidates = pool
       .filter(
         (c) =>
           c.position === out.position &&
           (c.cost || 99) <= budget + 0.05 &&
-          c.score > out.score + 0.4,
+          c.score > out.score + 0.35,
       )
-      .slice(0, 5);
+      .slice(0, 6);
     for (const inn of candidates) {
       const delta = Math.round((inn.score - out.score) * 1000) / 1000;
       const hitCost = freeTransfers >= 1 ? 0 : 4;
+      // Dead-bench upgrades are almost always worth a free transfer even with modest delta
+      const worthwhile =
+        kind === "dead-bench"
+          ? delta > hitCost * 0.5 + 0.25
+          : delta > hitCost * 0.85 + 0.5;
       ideas.push({
         out,
         in: inn,
         delta,
         hit_cost: hitCost,
-        worthwhile: delta > hitCost * 0.85 + 0.5,
-        reason: transferReason(out, inn, delta, hitCost),
+        worthwhile,
+        kind,
+        reason: transferReason(out, inn, delta, hitCost, kind),
       });
     }
   }
-  ideas.sort((a, b) => Number(b.worthwhile) - Number(a.worthwhile) || b.delta - a.delta);
+  ideas.sort(
+    (a, b) =>
+      Number(b.worthwhile) - Number(a.worthwhile) ||
+      (a.kind === "dead-bench" ? 0 : 1) - (b.kind === "dead-bench" ? 0 : 1) ||
+      b.delta - a.delta,
+  );
   const seen = new Set<string>();
   const unique = [];
   for (const idea of ideas) {
@@ -214,6 +274,7 @@ export function transferIdeas(
   }
   return {
     weak_links: weak.slice(0, 5),
+    dead_bench: deadBench.slice(0, 6),
     ideas: unique,
     hold_recommendation: !unique.slice(0, 3).some((i) => i.worthwhile),
   };

@@ -78,12 +78,22 @@ export async function analyzeEntry(opts: {
 
   if (transfers.ideas[0]?.worthwhile) {
     const best = transfers.ideas[0];
+    const cover =
+      best.kind === "dead-bench" ? " [bench/auto-sub cover]" : "";
     actions.push(
-      `2) Transfer: ${best.out.web_name} -> ${best.in.web_name} (delta ${best.delta >= 0 ? "+" : ""}${best.delta.toFixed(2)}${best.hit_cost ? ", -4 hit" : ", free"}). ${best.reason}.`,
+      `2) Transfer${cover}: ${best.out.web_name} -> ${best.in.web_name} (delta ${best.delta >= 0 ? "+" : ""}${best.delta.toFixed(2)}${best.hit_cost ? ", -4 hit" : ", free"}). ${best.reason}.`,
     );
   } else {
     actions.push(
       "2) Transfers: HOLD — no move clears the edge-after-hit bar. Bank FT if possible.",
+    );
+  }
+  if (transfers.dead_bench?.length) {
+    actions.push(
+      `2b) Dead bench (poor auto-sub cover): ${transfers.dead_bench
+        .slice(0, 3)
+        .map((p) => p.web_name)
+        .join(", ")}.`,
     );
   }
 

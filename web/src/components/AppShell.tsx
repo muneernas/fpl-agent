@@ -14,9 +14,9 @@ type ChatMessage = {
 const SUGGESTIONS = [
   "What should I do next?",
   "Who should I start?",
+  "Who should I transfer?",
   "Who should I captain?",
   "Any injury news?",
-  "Transfer ideas?",
   "Show differentials",
 ];
 

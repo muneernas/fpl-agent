@@ -98,6 +98,7 @@ export type AnalyzeResult = {
   captain_shortlist: ScoredPlayer[];
   transfers: {
     weak_links: ScoredPlayer[];
+    dead_bench?: ScoredPlayer[];
     ideas: {
       out: ScoredPlayer;
       in: ScoredPlayer;
@@ -105,6 +106,7 @@ export type AnalyzeResult = {
       hit_cost: number;
       worthwhile: boolean;
       reason: string;
+      kind?: string;
     }[];
     hold_recommendation: boolean;
   } | null;

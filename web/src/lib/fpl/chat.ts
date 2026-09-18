@@ -149,20 +149,55 @@ export function answerFromAnalysis(
       "bring in",
       "ship",
       "replace",
+      "autosub",
+      "auto-sub",
+      "auto sub",
+      "bench fodder",
+      "coverage",
+      "who should i transfer",
     ])
   ) {
     const ideas = data.transfers?.ideas || [];
+    const dead = data.transfers?.dead_bench || [];
     if (!ideas.length) {
       return `${header}\n\nNo strong transfer ideas cleared the bar. **HOLD** and bank the free transfer unless news forces a move.`;
     }
-    const lines = ideas.slice(0, 5).map((idea, i) => {
+    const deadLine = dead.length
+      ? [
+          "",
+          "**Bench with little/no start time** (weak auto-sub cover if an XI player blanks/gets injured):",
+          ...dead.map(
+            (p) =>
+              `• **${p.web_name}** (${p.position}, ${p.team}) — ${p.minutes} mins, ${p.starts} starts, ep ${p.ep_next}, score ${p.score.toFixed(2)}`,
+          ),
+        ]
+      : [
+          "",
+          "No obvious non-playing bench deadwood flagged — still prefer startable depth over pure fodder.",
+        ];
+    const lines = ideas.slice(0, 6).map((idea, i) => {
       const tag = idea.worthwhile ? "GO" : "weak";
-      return `${i + 1}. [${tag}] **${idea.out.web_name} → ${idea.in.web_name}** (Δ${idea.delta >= 0 ? "+" : ""}${idea.delta.toFixed(2)}, hit ${idea.hit_cost})\n   ${idea.reason}`;
+      const kind =
+        idea.kind === "dead-bench"
+          ? "bench cover"
+          : idea.kind === "injury"
+            ? "availability"
+            : "upgrade";
+      return `${i + 1}. [${tag}] [${kind}] **${idea.out.web_name} → ${idea.in.web_name}** (Δ${idea.delta >= 0 ? "+" : ""}${idea.delta.toFixed(2)}, hit ${idea.hit_cost})\n   ${idea.reason}`;
     });
     const hold = data.transfers?.hold_recommendation
-      ? "\n\nOverall lean: **HOLD** unless the top GO move fixes a real minutes problem."
-      : "";
-    return [header, "", "**Transfer ideas**", ...lines, hold].join("\n");
+      ? "\n\nOverall lean: **HOLD** unless the top GO move fixes minutes/auto-sub coverage."
+      : "\n\nPriority: fix **non-starting bench** first so auto-subs can still score if someone in your XI is injured.";
+    return [
+      header,
+      "",
+      "**Who to transfer (auto-sub aware)**",
+      ...deadLine,
+      "",
+      "**Suggested moves**",
+      ...lines,
+      hold,
+    ].join("\n");
   }
 
   if (
@@ -273,6 +308,14 @@ export async function answerWithOptionalLlm(
         delta: i.delta,
         worthwhile: i.worthwhile,
         reason: i.reason,
+        kind: i.kind,
+      })),
+      dead_bench: data.transfers?.dead_bench?.map((p) => ({
+        web_name: p.web_name,
+        position: p.position,
+        minutes: p.minutes,
+        starts: p.starts,
+        ep_next: p.ep_next,
       })),
       squad_flags: data.news.squad_flags,
       lineup: data.lineup
