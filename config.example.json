@@ -1,0 +1,7 @@
+{
+  "entry_id": 1234567,
+  "horizon_gws": 5,
+  "risk_mode": "balanced",
+  "free_transfers": 1,
+  "notes": "Copy to config.json. Find entry_id in your FPL URL: fantasy.premierleague.com/entry/{id}/"
+}
