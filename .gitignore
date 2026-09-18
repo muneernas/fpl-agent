@@ -17,3 +17,4 @@ web/.next/
 web/out/
 
 web/deploy-out.txt
+web/edge-config.json

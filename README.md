@@ -14,6 +14,15 @@ npm run dev
 
 Deploy: import the repo on Vercel and set **Root Directory** to `web`. See `web/README.md`.
 
+### Private EDGE (/admin)
+
+Your personal desk lives at **`/admin`** on the same site (password via `EDGE_PASSWORD`).
+Friends keep using `/`. Set Vercel env:
+
+- `EDGE_PASSWORD` — required in production
+- `EDGE_ENTRY_ID` — optional (defaults to your id in edge-config)
+- `EDGE_RIVALS` — optional JSON array of `{ "label", "entry_id" }`
+
 ## Quick start (CLI / Cursor agent)
 
 ```bash

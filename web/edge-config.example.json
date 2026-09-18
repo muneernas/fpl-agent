@@ -1,0 +1,14 @@
+{
+  "entry_id": 8682977,
+  "risk_mode": "aggressive",
+  "free_transfers": 1,
+  "horizon_gws": 5,
+  "strategy": {
+    "mode": "chase",
+    "max_hit": 4,
+    "prefer_differential_captain_when_delta_lt": 1.5,
+    "template_floor_pct": 55,
+    "notes": "OR chasing — calculated differentials vs mini-league"
+  },
+  "rivals": []
+}
