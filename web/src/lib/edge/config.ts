@@ -27,7 +27,13 @@ const DEFAULTS: EdgeConfig = {
     template_floor_pct: 55,
     notes: "OR chasing — calculated differentials vs mini-league",
   },
-  rivals: [],
+  rivals: [
+    { label: "Omar", entry_id: 2254644 },
+    { label: "Antone", entry_id: 8622803 },
+    { label: "Mike", entry_id: 4776867 },
+    { label: "Raed", entry_id: 10299890 },
+    { label: "Ali", entry_id: 10300291 },
+  ],
 };
 
 function loadFileConfig(): Partial<EdgeConfig> {
