@@ -13,6 +13,7 @@ type ChatMessage = {
 
 const SUGGESTIONS = [
   "What should I do next?",
+  "Who should I start?",
   "Who should I captain?",
   "Any injury news?",
   "Transfer ideas?",
@@ -43,7 +44,7 @@ export function AppShell() {
       id: "welcome",
       role: "assistant",
       content:
-        "I'm **NEXTGW**. Paste your FPL entry ID above, then ask anything — captain, transfers, injuries, or what to do next.",
+        "I'm **NEXTGW**. Paste your FPL entry ID above, then ask anything — who to start, captain, transfers, injuries, or what to do next.",
     },
   ]);
   const [pending, setPending] = useState(false);
@@ -237,7 +238,7 @@ export function AppShell() {
               className="chat-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about captain, transfers, injuries…"
+              placeholder="Ask who to start, captain, transfers…"
               disabled={pending}
               autoComplete="off"
             />

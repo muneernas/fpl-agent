@@ -3,6 +3,7 @@ import { injuryFeed, squadAvailability } from "./news";
 import {
   captainShortlist,
   rankPlayers,
+  suggestLineup,
   transferIdeas,
 } from "./scoring";
 import type { AnalyzeResult, RiskMode } from "./types";
@@ -40,6 +41,10 @@ export async function analyzeEntry(opts: {
     .slice(0, 8);
 
   const captains = captainShortlist(squad.picks, {
+    horizon: Math.min(3, horizon),
+    risk,
+  });
+  const lineup = suggestLineup(squad.picks, {
     horizon: Math.min(3, horizon),
     risk,
   });
@@ -98,6 +103,11 @@ export async function analyzeEntry(opts: {
     );
   }
 
+  if (lineup.xi.length === 11) {
+    const xiNames = lineup.xi.map((p) => p.web_name).join(", ");
+    actions.push(`3b) Start (${lineup.formation}): ${xiNames}.`);
+  }
+
   const used = new Set((squad.chips || []).map((c) => c.name).filter(Boolean));
   actions.push(
     `4) Chips: used=${used.size ? [...used].sort().join(",") : "none"}. Don't force chips.`,
@@ -131,5 +141,6 @@ export async function analyzeEntry(opts: {
     news: { squad_flags: squadFlags, recent_injuries: recent },
     top_assets: top,
     differentials: diffs,
+    lineup,
   };
 }

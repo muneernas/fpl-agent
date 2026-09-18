@@ -218,3 +218,121 @@ export function transferIdeas(
     hold_recommendation: !unique.slice(0, 3).some((i) => i.worthwhile),
   };
 }
+
+/** Legal FPL outfield shapes: DEF-MID-FWD (sums to 10). */
+const FORMATIONS: [number, number, number][] = [
+  [3, 4, 3],
+  [3, 5, 2],
+  [4, 4, 2],
+  [4, 3, 3],
+  [4, 5, 1],
+  [5, 3, 2],
+  [5, 4, 1],
+  [5, 2, 3],
+];
+
+export function suggestLineup(
+  squad: Player[],
+  opts: { horizon?: number; risk?: RiskMode } = {},
+): {
+  formation: string;
+  xi: ScoredPlayer[];
+  bench: ScoredPlayer[];
+  notes: string[];
+} {
+  const { horizon = 3, risk = "balanced" } = opts;
+  const scored = squad.map((p) => scorePlayer(p, { horizon, risk }));
+  const byPos = {
+    GKP: scored.filter((p) => p.position === "GKP").sort((a, b) => b.score - a.score),
+    DEF: scored.filter((p) => p.position === "DEF").sort((a, b) => b.score - a.score),
+    MID: scored.filter((p) => p.position === "MID").sort((a, b) => b.score - a.score),
+    FWD: scored.filter((p) => p.position === "FWD").sort((a, b) => b.score - a.score),
+  };
+
+  const gk = byPos.GKP[0];
+  if (!gk) {
+    return {
+      formation: "—",
+      xi: [],
+      bench: scored,
+      notes: ["No goalkeeper found in squad."],
+    };
+  }
+
+  let best: {
+    formation: string;
+    xi: ScoredPlayer[];
+    total: number;
+  } | null = null;
+
+  for (const [d, m, f] of FORMATIONS) {
+    if (byPos.DEF.length < d || byPos.MID.length < m || byPos.FWD.length < f) continue;
+    const xi = [
+      gk,
+      ...byPos.DEF.slice(0, d),
+      ...byPos.MID.slice(0, m),
+      ...byPos.FWD.slice(0, f),
+    ];
+    if (xi.length !== 11) continue;
+    const total = xi.reduce((s, p) => s + p.score, 0);
+    const formation = `${d}-${m}-${f}`;
+    if (!best || total > best.total) best = { formation, xi, total };
+  }
+
+  if (!best) {
+    // Fallback: best GK + top 10 outfield ignoring rare shortages
+    const outfield = [...byPos.DEF, ...byPos.MID, ...byPos.FWD].sort(
+      (a, b) => b.score - a.score,
+    );
+    const xi = [gk, ...outfield.slice(0, 10)];
+    best = { formation: "custom", xi, total: xi.reduce((s, p) => s + p.score, 0) };
+  }
+
+  const xiIds = new Set(best.xi.map((p) => p.id));
+  const bench = scored
+    .filter((p) => !xiIds.has(p.id))
+    .sort((a, b) => {
+      // Outfield before backup GK for auto-sub order
+      const ag = a.position === "GKP" ? 1 : 0;
+      const bg = b.position === "GKP" ? 1 : 0;
+      return ag - bg || b.score - a.score;
+    });
+
+  const notes: string[] = [];
+  const riskyStarters = best.xi.filter((p) => p.minutes_factor < 0.75);
+  if (riskyStarters.length) {
+    notes.push(
+      `Minutes risk in XI: ${riskyStarters.map((p) => p.web_name).join(", ")} — confirm team news before lock.`,
+    );
+  }
+  const benchUpside = bench.find(
+    (p) => p.position !== "GKP" && p.score > (best!.xi.at(-1)?.score ?? 0) - 0.3,
+  );
+  if (benchUpside && !xiIds.has(benchUpside.id)) {
+    const weakest = [...best.xi]
+      .filter((p) => p.position === benchUpside.position)
+      .sort((a, b) => a.score - b.score)[0];
+    if (weakest && benchUpside.score > weakest.score + 0.35) {
+      notes.push(
+        `Close call: ${benchUpside.web_name} (bench) scores above ${weakest.web_name} — swap if news is clean.`,
+      );
+    }
+  }
+  notes.push(
+    "Bench order is set for auto-subs (best outfield first, backup GK last).",
+  );
+
+  // Order XI: GK, DEF, MID, FWD for readability
+  const order = { GKP: 0, DEF: 1, MID: 2, FWD: 3 } as Record<string, number>;
+  best.xi.sort(
+    (a, b) =>
+      (order[a.position] ?? 9) - (order[b.position] ?? 9) || b.score - a.score,
+  );
+
+  return {
+    formation: best.formation,
+    xi: best.xi,
+    bench,
+    notes,
+  };
+}

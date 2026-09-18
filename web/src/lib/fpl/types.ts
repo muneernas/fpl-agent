@@ -114,6 +114,12 @@ export type AnalyzeResult = {
   };
   top_assets: ScoredPlayer[];
   differentials: ScoredPlayer[];
+  lineup: {
+    formation: string;
+    xi: ScoredPlayer[];
+    bench: ScoredPlayer[];
+    notes: string[];
+  } | null;
 };
 
 export type NewsFlag = {

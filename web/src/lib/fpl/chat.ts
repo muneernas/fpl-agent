@@ -23,6 +23,60 @@ export function answerFromAnalysis(
 
   if (
     isAbout(q, [
+      "start",
+      "starting",
+      "lineup",
+      "line-up",
+      "xi",
+      "bench",
+      "who should i play",
+      "who do i play",
+      "who to play",
+      "pick my team",
+      "set my team",
+      "formation",
+    ]) ||
+    q.includes("who should i start")
+  ) {
+    const lineup = data.lineup;
+    if (!lineup?.xi?.length) {
+      return `${header}\n\nI need your squad loaded to pick a starting XI. Check the entry ID.`;
+    }
+    const byPos = (pos: string) =>
+      lineup.xi
+        .filter((p) => p.position === pos)
+        .map((p) => {
+          const risk =
+            p.minutes_factor < 0.75
+              ? ` ⚠ ${p.chance_next ?? "?"}%`
+              : "";
+          return `**${p.web_name}** (${p.team}, ${p.score.toFixed(2)}${risk})`;
+        })
+        .join(", ");
+    const benchLines = lineup.bench
+      .map(
+        (p, i) =>
+          `${i + 1}. **${p.web_name}** (${p.position}, ${p.team}) — score ${p.score.toFixed(2)}`,
+      )
+      .join("\n");
+    return [
+      header,
+      "",
+      `**Start this XI (${lineup.formation})**`,
+      `GK: ${byPos("GKP")}`,
+      `DEF: ${byPos("DEF")}`,
+      `MID: ${byPos("MID")}`,
+      `FWD: ${byPos("FWD")}`,
+      "",
+      "**Bench order** (auto-subs):",
+      benchLines,
+      "",
+      ...(lineup.notes || []).map((n) => `• ${n}`),
+    ].join("\n");
+  }
+
+  if (
+    isAbout(q, [
       "captain",
       "captaincy",
       "armband",
@@ -174,7 +228,7 @@ export function answerFromAnalysis(
         ? `Quick lock-in: captain **${caps.web_name}** unless late news flips minutes.`
         : "",
       "",
-      "You can also ask: captain · transfers · injuries · differentials · chips",
+      "You can also ask: start / lineup · captain · transfers · injuries · differentials · chips",
     ]
       .filter(Boolean)
       .join("\n");
@@ -183,7 +237,7 @@ export function answerFromAnalysis(
   return [
     header,
     "",
-    "I can help with **captain**, **transfers**, **injuries**, **differentials**, **chips**, or **what to do next**.",
+    "I can help with **who to start**, **captain**, **transfers**, **injuries**, **differentials**, **chips**, or **what to do next**.",
     "Try one of those, or ask a sharper question about your squad.",
   ].join("\n");
 }
@@ -219,6 +273,24 @@ export async function answerWithOptionalLlm(
         reason: i.reason,
       })),
       squad_flags: data.news.squad_flags,
+      lineup: data.lineup
+        ? {
+            formation: data.lineup.formation,
+            xi: data.lineup.xi.map((p) => ({
+              web_name: p.web_name,
+              position: p.position,
+              team: p.team,
+              score: p.score,
+              chance_next: p.chance_next,
+            })),
+            bench: data.lineup.bench.map((p) => ({
+              web_name: p.web_name,
+              position: p.position,
+              score: p.score,
+            })),
+            notes: data.lineup.notes,
+          }
+        : null,
     },
     null,
     0,
