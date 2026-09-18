@@ -202,19 +202,21 @@ export function answerFromAnalysis(
     ].join("\n");
   }
 
-  // Default: what to do next
+  // Default: what to do next (explicit asks only — avoid stealing "who should I start?")
   if (
     isAbout(q, [
       "next",
-      "what should",
+      "what should i do",
       "advise",
       "advice",
-      "help",
+      "help me",
       "plan",
       "this week",
-      "gw",
+      "gameweek plan",
     ]) ||
-    q.length < 40
+    q === "help" ||
+    q === "hi" ||
+    q === "hello"
   ) {
     const actions = (data.actions || []).map((a) => `• ${a.replace(/^\d+\)\s*/, "")}`);
     const caps = data.captain_shortlist?.[0];
